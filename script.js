@@ -7,21 +7,81 @@ const configModal = document.getElementById('configModal');
 const warpToggle = document.getElementById('warp');
 const warpModal = document.getElementById('warpModal');
 const closeModal = document.querySelector('.close');
+const rulesToggle = document.getElementById('rules');
+const rulesContent = `rule-providers:
+  skrepysh-proxy:
+    type: http
+    url: https://github.com/Skrepysh/mihomo-rulesets/raw/refs/heads/main/skrepysh-rulesets/skrepysh-proxy.yaml
+    interval: 86400
+    proxy: DIRECT
+    behavior: classical
+    format: yaml
+  ru-bundle:
+    type: http
+    url: https://github.com/legiz-ru/mihomo-rule-sets/raw/main/ru-bundle/rule.yaml
+    interval: 86400
+    proxy: DIRECT
+    behavior: domain
+    format: yaml
+  torrent-clients:
+    type: http
+    url: 'https://raw.githubusercontent.com/legiz-ru/mihomo-rule-sets/refs/heads/main/other/torrent-clients.yaml'
+    interval: 86400
+    proxy: DIRECT
+    behavior: classical
+    format: yaml
+  torrent-trackers:
+    type: http
+    behavior: domain
+    format: mrs
+    url: https://github.com/legiz-ru/mihomo-rule-sets/raw/main/other/torrent-trackers.mrs
+    path: ./rule-sets/torrent-trackers.mrs
+    interval: 86400
 
-// Обработчик для переключателя WARP
+rules:
+  - RULE-SET,torrent-clients,DIRECT
+  - RULE-SET,torrent-trackers,DIRECT
+  - RULE-SET,skrepysh-proxy,PROXY
+  - RULE-SET,ru-bundle,PROXY
+  - MATCH,DIRECT
+`;
+let warpProxies = '';
+let warpProxyGroups = '';
+
+rulesToggle.addEventListener('change', function() {
+    const output = document.getElementById('yamlOutput').value.trim();
+    
+    if (this.checked) {
+        // Добавляем правила, если их еще нет
+        if (!output.includes('rule-providers:')) {
+            document.getElementById('yamlOutput').value = output + '\n\n' + rulesContent;
+        }
+    } else {
+        // Удаляем правила, если они есть
+        if (output.includes('rule-providers:')) {
+            const rulesStartIndex = output.indexOf('rule-providers:');
+            const newOutput = output.substring(0, rulesStartIndex).trim();
+            document.getElementById('yamlOutput').value = newOutput;
+        }
+    }
+});
+
+// Делаем свитчи неактивными при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('rules').disabled = true;
+    document.getElementById('warp').disabled = true;
+    document.getElementById('config').disabled = true;
+});
+
 warpToggle.addEventListener('change', function() {
   if (this.checked) {
     warpModal.style.display = 'block';
   }
 });
-
-// Закрытие модального окна
 closeModal.addEventListener('click', function() {
   warpModal.style.display = 'none';
   warpToggle.checked = false;
 });
-
-// Закрытие при клике вне модального окна
 window.addEventListener('click', function(event) {
   if (event.target === warpModal) {
     warpModal.style.display = 'none';
@@ -29,38 +89,144 @@ window.addEventListener('click', function(event) {
   }
 });
 
-// Обработчик для кнопки выбора конфига (можно добавить функционал позже)
-document.getElementById('selectWarpConfig').addEventListener('click', function() {
-  // Здесь будет логика выбора конфига
+closeModal.addEventListener('click', function() {
   warpModal.style.display = 'none';
+  warpToggle.checked = false;
+});
+window.addEventListener('click', function(event) {
+  if (event.target === warpModal) {
+    warpModal.style.display = 'none';
+    warpToggle.checked = false;
+  }
 });
 
-// Обработчик для переключателя Config
+// Обработчик для кнопки выбора конфига WARP
+document.getElementById('selectWarpConfig').addEventListener('click', function() {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.yaml,.yml';
+  
+  fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        const content = e.target.result;
+        // Разделяем конфиг на части
+        const proxyGroupsIndex = content.indexOf('proxy-groups:');
+        if (proxyGroupsIndex !== -1) {
+          // Получаем секцию proxies
+          const proxiesEndIndex = proxyGroupsIndex;
+          const proxiesStartIndex = content.indexOf('proxies:');
+          if (proxiesStartIndex !== -1) {
+            warpProxies = content.substring(proxiesStartIndex, proxiesEndIndex).trim();
+          }
+          
+          // Получаем секцию proxy-groups
+          warpProxyGroups = content.substring(proxyGroupsIndex).trim();
+          
+          // Закрываем модальное окно
+          warpModal.style.display = 'none';
+          
+          // Если есть контент в output, обновляем его
+          const output = document.getElementById('yamlOutput').value;
+          if (output) {
+            updateOutputWithWarp(output);
+          }
+        } else {
+          showError('Неверный формат WARP конфига: отсутствует секция proxy-groups');
+        }
+      };
+      
+      reader.readAsText(file);
+    }
+  });
+  
+  fileInput.click();
+});
+
+function updateOutputWithWarp(output) {
+  // Проверяем, есть ли в output секция proxy-providers (HTTP/HTTPS подписка)
+  const hasProxyProviders = output.includes('proxy-providers:');
+  
+  // Разделяем текущий output на части
+  const proxyGroupsIndex = output.indexOf('proxy-groups:');
+  
+  if (proxyGroupsIndex !== -1) {
+    // Получаем секцию proxies из текущего output
+    const proxiesStartIndex = output.indexOf('proxies:');
+    
+    if (proxiesStartIndex !== -1) {
+      // Находим конец секции proxies (до proxy-groups)
+      const proxiesEndIndex = proxyGroupsIndex;
+      const currentProxies = output.substring(proxiesStartIndex + 'proxies:'.length, proxiesEndIndex).trim();
+      
+      // Получаем секцию proxy-groups из текущего output
+      let currentProxyGroups = output.substring(proxyGroupsIndex).trim();
+      
+      // Для HTTP/HTTPS подписок сохраняем только proxy-providers и связанные группы
+      if (hasProxyProviders) {
+        const providersIndex = output.indexOf('proxy-providers:');
+        const currentProxyGroups = output.substring(proxyGroupsIndex, providersIndex).trim();
+        const proxyProviders = output.substring(providersIndex).trim();
+        
+        // Объединяем все части
+        const newOutput = warpProxies + '\n\n' +
+                         warpProxyGroups + '\n\n' +
+                         currentProxyGroups.replace('proxy-groups:', '').trim() + '\n\n' +
+                         proxyProviders;
+        
+        document.getElementById('yamlOutput').value = newOutput;
+        return;
+      }
+      
+      // Для обычных конфигов просто объединяем proxies и добавляем все группы
+      const mergedProxies = warpProxies + '\n\n' + currentProxies;
+      const mergedProxyGroups = warpProxyGroups + '\n\n' + currentProxyGroups.replace('proxy-groups:', '').trim();
+      
+      const newOutput = mergedProxies + '\n\n' + mergedProxyGroups;
+      document.getElementById('yamlOutput').value = newOutput;
+      return;
+    }
+  }
+  
+  // Если в output нет стандартных секций, просто добавляем обе секции WARP
+  const newOutput = output + '\n\n' + warpProxies + '\n\n' + warpProxyGroups;
+  document.getElementById('yamlOutput').value = newOutput;
+}
+
 configToggle.addEventListener('change', function() {
   if (this.checked) {
     configModal.style.display = 'block';
   }
 });
-
-// Функция для закрытия модального окна Config
 function closeConfigModal() {
   configModal.style.display = 'none';
   configToggle.checked = false;
 }
-
-// Закрытие при клике вне модального окна
 window.addEventListener('click', function(event) {
   if (event.target === configModal) {
     closeConfigModal();
   }
 });
 
-// Обработчик для кнопки выбора конфига
+// Обработчик для кнопки выбора другого конфига
 document.getElementById('selectConfig').addEventListener('click', function() {
-  // Здесь будет логика выбора конфига
-  closeConfigModal();
-});
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.yaml,.yml';
+  
+  fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+      configModal.style.display = 'none';
+    }
+  });
+  
 
+  
+  fileInput.click();
+});
 // Высота textarea
 var textarea = document.getElementsByTagName('textarea')[0];
 textarea.addEventListener('input', resize); // Изменил на 'input' для более плавной работы
@@ -127,6 +293,14 @@ function showError(message) {
 
 // Функция конвертации
 function convert() {
+	document.getElementById('rules').checked = false;
+    document.getElementById('warp').checked = false;
+    document.getElementById('config').checked = false;
+	
+	document.getElementById('rules').disabled = false;
+    document.getElementById('warp').disabled = false;
+//    document.getElementById('config').disabled = false;
+	
     const input = document.getElementById('yamlInput').value.trim();
     const outputTextarea = document.getElementById('yamlOutput');
     const downloadBtn = document.getElementById('downloadBtn');
@@ -175,7 +349,7 @@ function convert() {
         }
         
         outputTextarea.value = config;
-        setupDownloadAndCopy(config);
+        setupDownloadAndCopy();
         downloadBtnCT.classList.remove('hidden');
         return;
     }
@@ -233,7 +407,7 @@ function convert() {
     // Генерируем общий конфиг
     const config = generateMultiProxyConfig(proxies);
     outputTextarea.value = config;
-    setupDownloadAndCopy(config);
+    setupDownloadAndCopy();
     downloadBtnCT.classList.remove('hidden');
 }
 
@@ -274,20 +448,6 @@ proxy-providers:
       expected-status: 204`;
 }
 
-// Настройка кнопок скачивания и копирования (вынесено в отдельную функцию)
-function setupDownloadAndCopy(config) {
-    const downloadBtn = document.getElementById('downloadBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    
-    downloadBtn.classList.remove('hidden');
-    downloadBtn.onclick = function() {
-        downloadConfig(config);
-    };
-    
-    copyBtn.onclick = function() {
-        copyToClipboard(config);
-    };
-}
 
 function parseHysteria2Uri(line) {
     // Исправляем регулярное выражение для корректного парсинга
@@ -701,41 +861,37 @@ function parseTrojanUri(line) {
 }
 
 function generateHysteria2Config(proxy) {
-    let config = `proxies:
-  - name: "${proxy.name.replace(/'/g, "''")}"
-    type: ${proxy.type}
-    server: '${proxy.server}'
-    port: ${proxy.port}
-    password: '${proxy.password}'`;
+  let config = `proxies:
+- name: "${proxy.name.replace(/'/g, "''")}"
+  type: ${proxy.type}
+  server: '${proxy.server}'
+  port: ${proxy.port}
+  password: '${proxy.password}'`;
 
-    // Обязательные параметры
-    if (proxy.sni) {
-        config += `
-    sni: '${proxy.sni}'`;
-    }
-
-    // Обязательно добавляем obfs и obfs-password, если они есть
-    if (proxy.obfs) {
-        config += `
-    obfs: '${proxy.obfs}'`;
-        if (proxy["obfs-password"]) {
-            config += `
-    obfs-password: '${proxy["obfs-password"]}'`;
-        }
-    }
-
-    // Остальные параметры
+  if (proxy.sni) {
     config += `
-    skip-cert-verify: ${proxy["skip-cert-verify"] || false}
-    tfo: ${proxy.tfo || false}`;
+  sni: '${proxy.sni}'`;
+  }
 
-    if (proxy.fingerprint) {
-        config += `
-    fingerprint: '${proxy.fingerprint}'`;
+  if (proxy.obfs) {
+    config += `
+  obfs: '${proxy.obfs}'`;
+    if (proxy["obfs-password"]) {
+      config += `
+  obfs-password: '${proxy["obfs-password"]}'`;
     }
+  }
 
-    // Добавляем proxy-groups
-    config += `\n\nproxy-groups: 
+  config += `
+  skip-cert-verify: ${proxy["skip-cert-verify"] || false}
+  tfo: ${proxy.tfo || false}`;
+
+  if (proxy.fingerprint) {
+    config += `
+  fingerprint: '${proxy.fingerprint}'`;
+  }
+
+  config += `\n\nproxy-groups: 
 - name: PROXY
   type: select
   url: http://cp.cloudflare.com/generate_204
@@ -756,58 +912,58 @@ function generateHysteria2Config(proxy) {
   tolerance: 150
   lazy: true`;
 
-    return config;
+  return config;
 }
 
 function generateVmessConfig(proxy) {
-    let config = `proxies:
-  - name: "${proxy.name.replace(/'/g, "''")}"
-    type: ${proxy.type}
-    server: '${proxy.server}'
-    port: ${proxy.port}
-    uuid: '${proxy.uuid}'
-    alterId: ${proxy.alterId || 0}
-    cipher: '${proxy.cipher || "auto"}'`;
+  let config = `proxies:
+- name: "${proxy.name.replace(/'/g, "''")}"
+  type: ${proxy.type}
+  server: '${proxy.server}'
+  port: ${proxy.port}
+  uuid: '${proxy.uuid}'
+  alterId: ${proxy.alterId || 0}
+  cipher: '${proxy.cipher || "auto"}'`;
 
-    if (proxy.tls) {
-        config += `
-    tls: true`;
-    }
-    if (proxy.servername) {
-        config += `
-    servername: '${proxy.servername}'`;
-    }
-    if (proxy["skip-cert-verify"] !== undefined) {
-        config += `
-    skip-cert-verify: ${proxy["skip-cert-verify"]}`;
-    }
-    if (proxy.network) {
-        config += `
-    network: '${proxy.network}'`;
-    }
+  if (proxy.tls) {
+    config += `
+  tls: true`;
+  }
+  if (proxy.servername) {
+    config += `
+  servername: '${proxy.servername}'`;
+  }
+  if (proxy["skip-cert-verify"] !== undefined) {
+    config += `
+  skip-cert-verify: ${proxy["skip-cert-verify"]}`;
+  }
+  if (proxy.network) {
+    config += `
+  network: '${proxy.network}'`;
+  }
 
-    if (proxy.network === 'ws' && proxy["ws-opts"]) {
-        config += `
-    ws-opts:`;
-        if (proxy["ws-opts"].path) {
-            config += `
-      path: '${proxy["ws-opts"].path}'`;
-        }
-        if (proxy["ws-opts"].headers && Object.keys(proxy["ws-opts"].headers).length > 0) {
-            config += `
-      headers:`;
-            for (const [key, value] of Object.entries(proxy["ws-opts"].headers)) {
-                config += `
-        ${key}: '${value}'`;
-            }
-        }
-    } else if (proxy.network === 'grpc' && proxy["grpc-opts"]) {
-        config += `
-    grpc-opts:
-      grpc-service-name: '${proxy["grpc-opts"]["grpc-service-name"] || ""}'`;
+  if (proxy.network === 'ws' && proxy["ws-opts"]) {
+    config += `
+  ws-opts:`;
+    if (proxy["ws-opts"].path) {
+      config += `
+    path: '${proxy["ws-opts"].path}'`;
     }
+    if (proxy["ws-opts"].headers && Object.keys(proxy["ws-opts"].headers).length > 0) {
+      config += `
+    headers:`;
+      for (const [key, value] of Object.entries(proxy["ws-opts"].headers)) {
+        config += `
+      ${key}: '${value}'`;
+      }
+    }
+  } else if (proxy.network === 'grpc' && proxy["grpc-opts"]) {
+    config += `
+  grpc-opts:
+    grpc-service-name: '${proxy["grpc-opts"]["grpc-service-name"] || ""}'`;
+  }
 
-    config += `\n\nproxy-groups: 
+  config += `\n\nproxy-groups: 
 - name: PROXY
   type: select
   url: http://cp.cloudflare.com/generate_204
@@ -828,38 +984,37 @@ function generateVmessConfig(proxy) {
   tolerance: 150
   lazy: true`;
 
-    return config;
+  return config;
 }
 
 function generateShadowsocksConfig(proxy) {
-    let config = `proxies:
-  - name: "${proxy.name.replace(/'/g, "''")}"
-    type: ${proxy.type}
-    server: '${proxy.server}'
-    port: ${proxy.port}
-    cipher: '${proxy.cipher}'
-    password: '${proxy.password}'`;
+  let config = `proxies:
+- name: "${proxy.name.replace(/'/g, "''")}"
+  type: ${proxy.type}
+  server: '${proxy.server}'
+  port: ${proxy.port}
+  cipher: '${proxy.cipher}'
+  password: '${proxy.password}'`;
 
-    if (proxy.plugin) {
-        config += `
-    plugin: '${proxy.plugin}'`;
-        if (proxy["plugin-opts"]) {
-            config += `
-    plugin-opts:`;
-            for (const [key, value] of Object.entries(proxy["plugin-opts"])) {
-                if (typeof value === 'string') {
-                    config += `
-      ${key}: '${value}'`;
-                } else if (typeof value === 'boolean') {
-                    config += `
-      ${key}: ${value}`;
-                }
-            }
+  if (proxy.plugin) {
+    config += `
+  plugin: '${proxy.plugin}'`;
+    if (proxy["plugin-opts"]) {
+      config += `
+  plugin-opts:`;
+      for (const [key, value] of Object.entries(proxy["plugin-opts"])) {
+        if (typeof value === 'string') {
+          config += `
+    ${key}: '${value}'`;
+        } else if (typeof value === 'boolean') {
+          config += `
+    ${key}: ${value}`;
         }
+      }
     }
+  }
 
-    // Добавляем proxy-groups
-config += `\n\nproxy-groups:
+  config += `\n\nproxy-groups:
 - name: PROXY
   type: select
   url: http://cp.cloudflare.com/generate_204
@@ -880,70 +1035,68 @@ config += `\n\nproxy-groups:
   tolerance: 150
   lazy: true`;
 
-    return config;
+  return config;
 }
 
 function generateTrojanConfig(proxy) {
-    let config = `proxies:
-  - name: "${proxy.name.replace(/'/g, "''")}"
-    type: ${proxy.type}
-    server: '${proxy.server}'
-    port: ${proxy.port}
-    password: '${proxy.password}'`;
+  let config = `proxies:
+- name: "${proxy.name.replace(/'/g, "''")}"
+  type: ${proxy.type}
+  server: '${proxy.server}'
+  port: ${proxy.port}
+  password: '${proxy.password}'`;
 
-    if (proxy.tls !== false) {
-        config += `
-    tls: true`;
-    }
-    if (proxy.sni) {
-        config += `
-    servername: '${proxy.sni}'`;
-    }
-    if (proxy["skip-cert-verify"] !== undefined) {
-        config += `
-    skip-cert-verify: ${proxy["skip-cert-verify"]}`;
-    }
-    if (proxy["client-fingerprint"]) {
-        config += `
-    client-fingerprint: '${proxy["client-fingerprint"]}'`;
-    }
-    if (proxy.alpn && proxy.alpn.length > 0) {
-        config += `
-    alpn:`;
-        proxy.alpn.forEach(a => {
-            config += `
-      - '${a}'`;
-        });
-    }
-    if (proxy.network && proxy.network !== 'tcp') {
-        config += `
-    network: '${proxy.network}'`;
-    }
+  if (proxy.tls !== false) {
+    config += `
+  tls: true`;
+  }
+  if (proxy.sni) {
+    config += `
+  servername: '${proxy.sni}'`;
+  }
+  if (proxy["skip-cert-verify"] !== undefined) {
+    config += `
+  skip-cert-verify: ${proxy["skip-cert-verify"]}`;
+  }
+  if (proxy["client-fingerprint"]) {
+    config += `
+  client-fingerprint: '${proxy["client-fingerprint"]}'`;
+  }
+  if (proxy.alpn && proxy.alpn.length > 0) {
+    config += `
+  alpn:`;
+    proxy.alpn.forEach(a => {
+      config += `
+    - '${a}'`;
+    });
+  }
+  if (proxy.network && proxy.network !== 'tcp') {
+    config += `
+  network: '${proxy.network}'`;
+  }
 
-    // Опции для разных типов сети
-    if (proxy.network === 'ws' && proxy["ws-opts"]) {
-        config += `
-    ws-opts:`;
-        if (proxy["ws-opts"].path) {
-            config += `
-      path: '${proxy["ws-opts"].path}'`;
-        }
-        if (proxy["ws-opts"].headers && Object.keys(proxy["ws-opts"].headers).length > 0) {
-            config += `
-      headers:`;
-            for (const [key, value] of Object.entries(proxy["ws-opts"].headers)) {
-                config += `
-        ${key}: '${value}'`;
-            }
-        }
-    } else if (proxy.network === 'grpc' && proxy["grpc-opts"]) {
-        config += `
-    grpc-opts:
-      grpc-service-name: '${proxy["grpc-opts"]["grpc-service-name"] || ""}'`;
+  if (proxy.network === 'ws' && proxy["ws-opts"]) {
+    config += `
+  ws-opts:`;
+    if (proxy["ws-opts"].path) {
+      config += `
+    path: '${proxy["ws-opts"].path}'`;
     }
+    if (proxy["ws-opts"].headers && Object.keys(proxy["ws-opts"].headers).length > 0) {
+      config += `
+    headers:`;
+      for (const [key, value] of Object.entries(proxy["ws-opts"].headers)) {
+        config += `
+      ${key}: '${value}'`;
+      }
+    }
+  } else if (proxy.network === 'grpc' && proxy["grpc-opts"]) {
+    config += `
+  grpc-opts:
+    grpc-service-name: '${proxy["grpc-opts"]["grpc-service-name"] || ""}'`;
+  }
 
-    // Добавляем proxy-groups
-config += `\n\nproxy-groups:
+  config += `\n\nproxy-groups:
 - name: PROXY
   type: select
   url: http://cp.cloudflare.com/generate_204
@@ -964,95 +1117,93 @@ config += `\n\nproxy-groups:
   tolerance: 150
   lazy: true`;
 
-    return config;
+  return config;
 }
 
 function generateVlessConfig(proxy) {
-    let config = `proxies:
-  - name: "${proxy.name.replace(/'/g, "''")}"
-    type: ${proxy.type}
-    server: '${proxy.server}'
-    port: ${proxy.port}
-    uuid: '${proxy.uuid}'`;
+  let config = `proxies:
+- name: "${proxy.name.replace(/'/g, "''")}"
+  type: ${proxy.type}
+  server: '${proxy.server}'
+  port: ${proxy.port}
+  uuid: '${proxy.uuid}'`;
 
-    if (proxy.tls) {
-        config += `
-    tls: true`;
-    }
-    if (proxy.sni) {
-        config += `
-    servername: '${proxy.sni}'`;
-    }
-    if (proxy.flow) {
-        config += `
-    flow: '${proxy.flow}'`;
-    }
-    if (proxy['skip-cert-verify'] !== undefined) {
-        config += `
-    skip-cert-verify: ${proxy['skip-cert-verify']}`;
-    }
-    if (proxy['client-fingerprint']) {
-        config += `
-    client-fingerprint: '${proxy['client-fingerprint']}'`;
-    }
-    if (proxy.alpn && proxy.alpn.length > 0) {
-        config += `
-    alpn:`;
-        proxy.alpn.forEach(a => {
-            config += `
-      - '${a}'`;
-        });
-    }
-    if (proxy.network) {
-        config += `
-    network: '${proxy.network}'`;
-    }
-
-    // Reality параметры
-    if (proxy['reality-opts'] && (proxy['reality-opts']['public-key'] || proxy['reality-opts']['short-id'])) {
-        config += `
-    reality-opts:`;
-        if (proxy['reality-opts']['public-key']) {
-            config += `
-      public-key: '${proxy['reality-opts']['public-key']}'`;
-        }
-        if (proxy['reality-opts']['short-id']) {
-            config += `
-      short-id: '${proxy['reality-opts']['short-id']}'`;
-        }
-    }
+  if (proxy.tls) {
     config += `
-    ws-opts:`;
-    if (Object.keys(proxy['ws-opts']).length > 0) {
-        if (proxy['ws-opts'].headers) {
-            config += `
-      headers:`;
-            for (const [key, value] of Object.entries(proxy['ws-opts'].headers)) {
-                config += `
-        ${key}: '${value}'`;
-            }
-        }
-        if (proxy['ws-opts'].path) {
-            config += `
-      path: '${proxy['ws-opts'].path}'`;
-        }
-    } else {
-        config += ` {}`;
-    }
-
-    if (proxy.network === 'grpc' && proxy['grpc-opts'] && proxy['grpc-opts']['grpc-service-name']) {
-        config += `
-    grpc-opts:
-      grpc-service-name: '${proxy['grpc-opts']['grpc-service-name']}'`;
-    } else {
-        config += `
-    grpc-opts: {}`;
-    }
+  tls: true`;
+  }
+  if (proxy.sni) {
     config += `
-    http-opts: {}`;
+  servername: '${proxy.sni}'`;
+  }
+  if (proxy.flow) {
+    config += `
+  flow: '${proxy.flow}'`;
+  }
+  if (proxy['skip-cert-verify'] !== undefined) {
+    config += `
+  skip-cert-verify: ${proxy['skip-cert-verify']}`;
+  }
+  if (proxy['client-fingerprint']) {
+    config += `
+  client-fingerprint: '${proxy['client-fingerprint']}'`;
+  }
+  if (proxy.alpn && proxy.alpn.length > 0) {
+    config += `
+  alpn:`;
+    proxy.alpn.forEach(a => {
+      config += `
+    - '${a}'`;
+    });
+  }
+  if (proxy.network) {
+    config += `
+  network: '${proxy.network}'`;
+  }
 
-    // Добавляем proxy-groups без лишних отступов
-    config += `\n\nproxy-groups:
+  if (proxy['reality-opts'] && (proxy['reality-opts']['public-key'] || proxy['reality-opts']['short-id'])) {
+    config += `
+  reality-opts:`;
+    if (proxy['reality-opts']['public-key']) {
+      config += `
+    public-key: '${proxy['reality-opts']['public-key']}'`;
+    }
+    if (proxy['reality-opts']['short-id']) {
+      config += `
+    short-id: '${proxy['reality-opts']['short-id']}'`;
+    }
+  }
+  config += `
+  ws-opts:`;
+  if (Object.keys(proxy['ws-opts']).length > 0) {
+    if (proxy['ws-opts'].headers) {
+      config += `
+    headers:`;
+      for (const [key, value] of Object.entries(proxy['ws-opts'].headers)) {
+        config += `
+      ${key}: '${value}'`;
+      }
+    }
+    if (proxy['ws-opts'].path) {
+      config += `
+    path: '${proxy['ws-opts'].path}'`;
+    }
+  } else {
+    config += ` {}`;
+  }
+
+  if (proxy.network === 'grpc' && proxy['grpc-opts'] && proxy['grpc-opts']['grpc-service-name']) {
+    config += `
+  grpc-opts:
+    grpc-service-name: '${proxy['grpc-opts']['grpc-service-name']}'`;
+  } else {
+    config += `
+  grpc-opts: {}`;
+  }
+  config += `
+  http-opts: {}`;
+
+  config += `\n\nproxy-groups:
 - name: PROXY
   type: select
   url: http://cp.cloudflare.com/generate_204
@@ -1073,7 +1224,7 @@ function generateVlessConfig(proxy) {
   tolerance: 150
   lazy: true`;
 
-    return config;
+  return config;
 }
 
 // Генерация конфига для нескольких прокси
@@ -1137,7 +1288,17 @@ function generateMultiProxyConfig(proxies) {
     return config;
 }
 
-function downloadConfig(config) {
+function setupDownloadAndCopy() {
+    const downloadBtn = document.getElementById('downloadBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    
+    downloadBtn.classList.remove('hidden');
+    downloadBtn.onclick = downloadConfig;
+    copyBtn.onclick = copyToClipboard;
+}
+
+function downloadConfig() {
+    const config = document.getElementById('yamlOutput').value;
     const blob = new Blob([config], { type: 'text/yaml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1149,7 +1310,8 @@ function downloadConfig(config) {
     URL.revokeObjectURL(url);
 }
 
-function copyToClipboard(text) {
+function copyToClipboard() {
+    const text = document.getElementById('yamlOutput').value;
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
