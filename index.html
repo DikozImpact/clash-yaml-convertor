@@ -1,75 +1,29 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<link rel="icon" href="Clash.webp" type="image/x-icon">
-	<link rel="stylesheet" href="styles.css">
-	<script defer src="script.js"></script>
-  <title>Clash Convertor</title>
+    <title>Другие проекты</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="script.js"></script>
 </head>
 <body>
-  <div class="wrapper">
-	<div id="logo">
-    <img src="logo.png" alt="Логотип" style="display: inline-block; vertical-align: middle; max-width: 100px;">
-    <span class="logo-text">Clash Convertor</span>
-</div>
-		<div class="infobtn">
-			<div class="file-list" id="fileList"> 
-			<textarea 
-				id="yamlInput" 
-				class="Input" 
-				rows="1" 
-				placeholder="Вставьте подписку сюда..."
-				autocomplete="off" 
-				autocorrect="off" 
-				autocapitalize="off" 
-				spellcheck="false"
-				></textarea>
-			<button onclick="convert()">Конвертировать</button>
-			</div>
-			<div class="result" id="output">
-				<div class="button-container hidden" id="downloadBtnCT">
-					<button class="download-btn" id="downloadBtn">Скачать</button>
-					<button class="download-btn" id="copyBtn">Скопировать</button>
-				</div>
-				<textarea id="yamlOutput" placeholder="Результат появится здесь..."
-				class="Output" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
-				<div class="switch">
-				<label class="toggle">
-					<input class="toggle-checkbox" type="checkbox" id="rules">
-					<div class="toggle-switch"></div>
-					<span class="toggle-label">Правила</span>
-				</label>
-				<label class="toggle">
-					<input class="toggle-checkbox" type="checkbox" id="warp">
-					<div class="toggle-switch"></div>
-					<span class="toggle-label">WARP</span>
-				</label>
-				<label class="toggle">
-					<input class="toggle-checkbox" type="checkbox" id="config">
-					<div class="toggle-switch"></div>
-					<span class="toggle-label">Другой конфиг</span>
-				</label>
-				</div>
-			</div>
-			<button id="warpButton" style="width: 100%; max-width: 400px;"><span class="button__text">Другие проекты</span></button>
-
-			<div id="info1">Конвертация URI (vless://, trojan:// и т.д.) может быть с ошибками.<br>Если вы заметили такую, прошу сообщить об этом <a id="link" href="https://github.com/DikozImpact/clash-convertor/issues" target="_blank">автору</a></div>
+<div class="container">
+        <div class="containerAWG">
+            <button id="warpButton"><span class="button__text">Cloudflare WARP Генератор</span></button>
+            <button id="protonButton"><span class="button__text">ProtonVPN Конвертер</span></button>
+            <button id="clashButton"><span class="button__text">Clash Конвертер</span></button>
 		</div>
-	</div>
-	<div id="warpModal" class="modal">
-  <div class="modal-content">
-    <span class="close">&times;</span>
-    <p align="center">Выберите конфиг WARP. Конфиг можно получить <a id="link" href="https://config-generator-warp.vercel.app/" target="_blank">тут</a></p>
-    <button id="selectWarpConfig">Выбрать конфиг</button>
-  </div>
+		<div class="container2">
+			<button id="githubButton"><span class="button__text">Гайд</span></button>
+			<button id="telegramButton"><span class="button__text">Telegram канал</span></button>
+			<button id="BoostyButton"><span class="button__text">Поддержать автора</span></button>
+			<div id="newButtons">
+				<button id="DonationAlertsButton"><span class="button__text">CloudTips</span></button>
+				<button id="BoostyNewButton"><span class="button__text">Boosty</span></button>
+			</div>
+		</div>
 </div>
-<div id="configModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeConfigModal()">&times;</span>
-    <p align="center">Выберите конфиг .yaml для слияния (Всё ещё в разработке)</p>
-    <button id="selectConfig">Выбрать конфиг</button>
-  </div>
-</div>
-</body></html>
+</body>
