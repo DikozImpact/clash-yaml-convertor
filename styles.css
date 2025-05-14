@@ -89,6 +89,10 @@ button {
   width: 100%;
 }
 
+#link {
+ color: #6D4AFF;
+}
+
 button:hover, .custom-file-upload:hover {
   background: #7F66FF;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -177,6 +181,9 @@ h1 {
     margin: 0 auto; 
 
 }
+
+
+
 #warpButton {
 	width: 100%;
     max-width: 400px;
@@ -276,7 +283,7 @@ h1 {
 .toggle-checkbox:disabled + .toggle-switch {
     opacity: 0.5;
     cursor: not-allowed;
-    background: #3A3C4C;
+    background: gray;
 }
 
 .toggle-checkbox:disabled + .toggle-switch:before {
@@ -355,6 +362,8 @@ h1 {
 #selectWarpConfig:hover {
   background: #7F66FF;
 }
+
+
 
 @media (max-width: 730px) {
 button, 
