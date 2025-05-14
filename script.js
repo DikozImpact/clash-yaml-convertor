@@ -1,5 +1,5 @@
 document.getElementById('warpButton').onclick = function() {
-    window.location.href = 'https://generator-warp.vercel.app/';
+    window.location.href = 'https://my-other-projects.vercel.app/';
 }
 
 const configToggle = document.getElementById('config');
@@ -43,12 +43,9 @@ rules:
   - RULE-SET,torrent-trackers,DIRECT
   - RULE-SET,skrepysh-proxy,PROXY
   - RULE-SET,ru-bundle,PROXY
-  - MATCH,DIRECT
-`;
+  - MATCH,DIRECT`;
 let warpProxies = '';
 let warpProxyGroups = '';
-
-
 
 rulesToggle.addEventListener('change', function() {
     const output = document.getElementById('yamlOutput').value.trim();
@@ -67,8 +64,6 @@ rulesToggle.addEventListener('change', function() {
         }
     }
 });
-
-// Делаем свитчи неактивными при загрузке
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('rules').disabled = true;
     document.getElementById('warp').disabled = true;
@@ -102,12 +97,11 @@ window.addEventListener('click', function(event) {
   }
 });
 
-// Обработчик для кнопки выбора конфига WARP
+// Выбор конфига WARP
 document.getElementById('selectWarpConfig').addEventListener('click', function() {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.yaml,.yml';
-  
   fileInput.addEventListener('change', function(e) {
     if (e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -244,37 +238,194 @@ window.addEventListener('click', function(event) {
 
 // Обработчик для кнопки выбора другого конфига
 document.getElementById('selectConfig').addEventListener('click', function() {
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.yaml,.yml';
-  
-  fileInput.addEventListener('change', function(e) {
-    if (e.target.files.length > 0) {
-      configModal.style.display = 'none';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.yaml,.yml';
+    
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const selectedConfig = e.target.result;
+                let currentConfig = document.getElementById('yamlOutput').value;
+                
+                // Извлекаем нужные секции из текущего конфига
+                const sections = extractSections(currentConfig);
+                
+                // Сначала копируем весь выбранный конфиг
+                let mergedConfig = selectedConfig;
+                
+                // Для proxy-groups - добавляем наши группы к существующим
+                if (sections.proxyGroups) {
+                    const groupsIndex = mergedConfig.indexOf('proxy-groups:');
+                    if (groupsIndex !== -1) {
+                        // Находим конец секции proxy-groups в выбранном конфиге
+                        const nextSectionIndex = findNextSectionIndex(mergedConfig, groupsIndex);
+                        const endIndex = nextSectionIndex !== -1 ? nextSectionIndex : mergedConfig.length;
+                        
+                        // Вставляем наши группы перед закрывающим символом секции
+                        const originalGroups = mergedConfig.substring(groupsIndex, endIndex).trim();
+                        const ourGroups = sections.proxyGroups.replace('proxy-groups:', '').trim();
+                        
+                        // Объединяем группы с двумя переносами строк между ними
+                        mergedConfig = mergedConfig.substring(0, groupsIndex) + 
+                                     'proxy-groups:\n' + 
+                                     originalGroups.replace('proxy-groups:', '').trim() + 
+                                     '\n\n' + ourGroups + 
+                                     mergedConfig.substring(endIndex);
+						mergedConfig = mergedConfig.replace(/(proxy-groups:[^\n]*[\s\S]*?)(proxy-providers:)/g, '$1\n\n$2');
+                    } else {
+                        // Добавляем в конец с двумя переносами строк
+                        mergedConfig += '\n\n' + sections.proxyGroups;
+                    }
+                }
+                
+// Для proxy-providers - добавляем с правильными переносами строк
+if (sections.proxyProviders) {
+    const providersIndex = mergedConfig.indexOf('proxy-providers:');
+    if (providersIndex !== -1) {
+        // Находим конец секции proxy-providers в выбранном конфиге
+        const nextSectionIndex = findNextSectionIndex(mergedConfig, providersIndex);
+        const endIndex = nextSectionIndex !== -1 ? nextSectionIndex : mergedConfig.length;
+        
+		const originalProxies1 = mergedConfig.substring(providersIndex, endIndex).trim();
+        // Сохраняем все что идет ПОСЛЕ секции proxy-providers в оригинальном конфиге
+        const afterProviders = mergedConfig.substring(endIndex);
+        
+        // Собираем новый конфиг: все до providers + наши providers + все после
+        mergedConfig = mergedConfig.substring(0, providersIndex).trim() +  
+                     '\n\n' + sections.proxyProviders + 
+					 '\n\n  ' + originalProxies1.replace('proxy-providers:', '').trim() +
+                     '\n\n' + afterProviders.trim();
+    } else {
+        // Добавляем в конец с двумя переносами строк
+        mergedConfig += '\n\n' + sections.proxyProviders;
     }
-  });
-  
-
-  
-  fileInput.click();
+}
+                
+                // Для proxies - добавляем наши прокси к существующим
+                if (sections.proxies) {
+                    const proxiesIndex = mergedConfig.indexOf('proxies:\n- name:');
+                    if (proxiesIndex !== -1) {
+                        // Находим конец секции proxies в выбранном конфиге
+                        const nextSectionIndex = findNextSectionIndex(mergedConfig, proxiesIndex);
+                        const endIndex = nextSectionIndex !== -1 ? nextSectionIndex : mergedConfig.length;
+                        
+                        // Вставляем наши прокси перед закрывающим символом секции
+                        const originalProxies = mergedConfig.substring(proxiesIndex, endIndex).trim();
+                        const ourProxies = sections.proxies.replace('proxies:', '').trim();
+                        
+                        // Объединяем прокси с двумя переносами строк между ними
+                        mergedConfig = mergedConfig.substring(0, proxiesIndex) + 
+                                     'proxies:\n' + 
+                                     originalProxies.replace('proxies:', '').trim() + 
+                                     '\n\n' + ourProxies + 
+                                     mergedConfig.substring(endIndex);
+						mergedConfig = mergedConfig.replace(/(proxies:[^\n]*[\s\S]*?)(proxy-groups:)/g, '$1\n\n$2');
+                    } else {
+                        // Добавляем в конец с двумя переносами строк
+                        mergedConfig += '\n\n' + sections.proxies;
+                    }
+                }
+                       
+                mergedConfig = mergedConfig.replace(/(\n\s*\n)(?=\s+-)/g, '\n');
+                mergedConfig = mergedConfig.trim();
+                document.getElementById('yamlOutput').value = mergedConfig;
+                configModal.style.display = 'none';
+            };
+            
+            reader.readAsText(file);
+        }
+    });
+    
+    fileInput.click();
 });
-// Высота textarea
-var textarea = document.getElementsByTagName('textarea')[0];
-textarea.addEventListener('input', resize); // Изменил на 'input' для более плавной работы
 
-function resize() {
-    const maxLines = 20; // Максимальное количество строк перед появлением скролла
-    const lineHeight = 20; // Высота одной строки в пикселях (подберите под ваш стиль)
-    const maxHeight = maxLines * lineHeight;
-    
-    this.style.height = 'auto'; // Сброс высоты
-    const newHeight = Math.min(this.scrollHeight, maxHeight);
-    
-    this.style.height = newHeight + 'px';
-    this.style.overflowY = newHeight >= maxHeight ? 'auto' : 'hidden'; // Добавляем скролл при достижении лимита
+function extractSections(config) {
+    const sections = {
+        proxyProviders: '',
+        proxyGroups: '',
+        proxies: ''
+    };
+
+    // Извлекаем proxy-providers
+    const proxyProvidersIndex = config.indexOf('proxy-providers:');
+    if (proxyProvidersIndex !== -1) {
+        let endIndex = config.length;
+        // Ищем следующий раздел или конец файла
+        const nextSectionIndex = findNextSectionIndex(config, proxyProvidersIndex);
+        if (nextSectionIndex !== -1) {
+            endIndex = nextSectionIndex;
+        }
+        sections.proxyProviders = config.substring(
+            proxyProvidersIndex, 
+            endIndex
+        ).trim();
+    }
+
+    // Извлекаем proxy-groups
+    const proxyGroupsIndex = config.indexOf('proxy-groups:');
+    if (proxyGroupsIndex !== -1) {
+        let endIndex = config.length;
+        const nextSectionIndex = findNextSectionIndex(config, proxyGroupsIndex);
+        if (nextSectionIndex !== -1) {
+            endIndex = nextSectionIndex;
+        }
+        sections.proxyGroups = config.substring(
+            proxyGroupsIndex, 
+            endIndex
+        ).trim();
+    }
+
+    // Извлекаем proxies
+    const proxiesIndex = config.indexOf('proxies:\n- name:');
+    if (proxiesIndex !== -1) {
+        let endIndex = config.length;
+        const nextSectionIndex = findNextSectionIndex(config, proxiesIndex);
+        if (nextSectionIndex !== -1) {
+            endIndex = nextSectionIndex;
+        }
+        sections.proxies = config.substring(
+            proxiesIndex, 
+            endIndex
+        ).trim();
+    }
+
+    return sections;
 }
 
-// Инициализация при загрузке
+function findNextSectionIndex(config, currentIndex) {
+    const sections = ['proxy-providers:', 'proxy-groups:', 'proxies:\n- name:', 'rule-providers:', 'rules:', 'sniffer:', 'dns:', 'tun:'];
+    let nextIndex = -1;
+    
+    for (const section of sections) {
+        if (section === config.substring(currentIndex, currentIndex + section.length)) {
+            continue; // Пропускаем текущий раздел
+        }
+        
+        const index = config.indexOf(section, currentIndex + 1);
+        if (index !== -1 && (nextIndex === -1 || index < nextIndex)) {
+            nextIndex = index;
+        }
+    }
+    
+    return nextIndex;
+}
+
+var textarea = document.getElementsByTagName('textarea')[0];
+textarea.addEventListener('input', resize); 
+function resize() {
+    const maxLines = 20; // Максимальное количество строк перед появлением скролла
+    const lineHeight = 20; // Высота одной строки в пикселях
+    const maxHeight = maxLines * lineHeight;
+    this.style.height = 'auto'; 
+    const newHeight = Math.min(this.scrollHeight, maxHeight);
+    this.style.height = newHeight + 'px';
+    this.style.overflowY = newHeight >= maxHeight ? 'auto' : 'hidden';
+}
+
 resize.call(textarea);
 
 // Окно для ошибок
@@ -321,7 +472,6 @@ function showError(message) {
     modal.style.display = 'flex';
 }
 
-
 // Функция конвертации
 function convert() {
 	document.getElementById('rules').checked = false;
@@ -330,7 +480,7 @@ function convert() {
 	
 	document.getElementById('rules').disabled = false;
     document.getElementById('warp').disabled = false;
-//    document.getElementById('config').disabled = false;
+	document.getElementById('config').disabled = false;
 	
     const input = document.getElementById('yamlInput').value.trim();
     const outputTextarea = document.getElementById('yamlOutput');
@@ -342,7 +492,6 @@ function convert() {
         return;
     }
 
-    // Разделяем ввод по строкам
     const lines = input.split('\n').filter(line => line.trim());
     
     // Если только одна строка, обрабатываем как раньше
@@ -479,7 +628,6 @@ proxy-providers:
       expected-status: 204`;
 }
 
-
 function parseHysteria2Uri(line) {
     // Исправляем регулярное выражение для корректного парсинга
     const match = line.match(/(?:hysteria2|hy2):\/\/([^@]+)@([^:]+):(\d+)(?:\/?\?([^#]*))?(?:#(.*))?/);
@@ -526,7 +674,7 @@ function parseHysteria2Uri(line) {
 
     return proxy;
 }
-// Функция для парсинга VLESS URI с поддержкой Reality и Fingerprint
+
 function parseVlessUri(line) {
     line = line.split('vless://')[1];
     let isShadowrocket;
@@ -555,7 +703,10 @@ function parseVlessUri(line) {
         tls: false,
         network: "tcp",
         alpn: [],
-        "ws-opts": {},
+        "ws-opts": {
+            "v2ray-http-upgrade": false,
+            "v2ray-http-upgrade-fast-open": false
+        },
         "http-opts": {},
         "grpc-opts": {},
         "reality-opts": {},
@@ -600,25 +751,25 @@ function parseVlessUri(line) {
         }
     }
 
-    // Определение типа сети
-    proxy.network = params.type || 'tcp';
-    if (!['tcp', 'ws', 'http', 'grpc', 'h2'].includes(proxy.network)) {
-        proxy.network = 'tcp';
+    // Определение типа сети и параметров http-upgrade
+    if (params.type === 'httpupgrade') {
+        proxy.network = 'ws';
+        proxy['ws-opts']['v2ray-http-upgrade'] = true;
+        proxy['ws-opts']['v2ray-http-upgrade-fast-open'] = true;
+    } else {
+        proxy.network = params.type || 'tcp';
+        if (!['tcp', 'ws', 'http', 'grpc', 'h2'].includes(proxy.network)) {
+            proxy.network = 'tcp';
+        }
     }
 
     // Обработка параметров для каждого типа подключения
     switch (proxy.network) {
         case 'ws':
-            proxy['ws-opts'] = {
-                headers: {}
-            };
-            
-            // Добавляем path только если он указан
             if (params.path) {
                 proxy['ws-opts'].path = decodeURIComponent(params.path);
             }
             
-            // Обработка host/headers
             if (params.host || params.obfsParam) {
                 const host = params.host || params.obfsParam;
                 try {
@@ -628,15 +779,16 @@ function parseVlessUri(line) {
                     }
                 } catch (e) {
                     if (host) {
+                        proxy['ws-opts'].headers = proxy['ws-opts'].headers || {};
                         proxy['ws-opts'].headers.Host = host;
                     }
                 }
             }
             
-            // Обработка дополнительных заголовков (только если есть значение)
             if (params.eh && params.eh.includes(':')) {
                 const [headerName, headerValue] = params.eh.split(':').map(s => s.trim());
                 if (headerName && headerValue) {
+                    proxy['ws-opts'].headers = proxy['ws-opts'].headers || {};
                     proxy['ws-opts'].headers[headerName] = headerValue;
                 }
             }
@@ -670,13 +822,6 @@ function parseVlessUri(line) {
             }
             break;
     }
-
-    // Удаляем пустые объекты opts
-    ['ws-opts', 'http-opts', 'grpc-opts'].forEach(opt => {
-        if (Object.keys(proxy[opt]).length === 0) {
-            proxy[opt] = {};
-        }
-    });
 
     return proxy;
 }
@@ -730,7 +875,10 @@ function parseVmessUri(line) {
         tls: params.tls === "tls" || params.tls === "1" || params.tls === 1,
         "skip-cert-verify": params.allowInsecure === "1" || params.allowInsecure === "true",
         network: params.net || "tcp",
-        "ws-opts": {},
+        "ws-opts": {
+            "v2ray-http-upgrade": false,
+            "v2ray-http-upgrade-fast-open": false
+        },
         "http-opts": {},
         "grpc-opts": {}
     };
@@ -740,16 +888,17 @@ function parseVmessUri(line) {
     }
     
     // Обработка типа сети
-    if (proxy.network === "ws") {
-        proxy["ws-opts"] = {
-            path: params.path || "/",
-            headers: {}
-        };
+    if (params.net === "httpupgrade") {
+        proxy.network = "ws";
+        proxy["ws-opts"]["v2ray-http-upgrade"] = true;
+        proxy["ws-opts"]["v2ray-http-upgrade-fast-open"] = true;
+    } else if (proxy.network === "ws") {
+        proxy["ws-opts"].path = params.path || "/";
+        proxy["ws-opts"].headers = {};
         
         if (params.host) {
             try {
-                const headers = JSON.parse(params.host);
-                proxy["ws-opts"].headers = headers;
+                proxy["ws-opts"].headers = JSON.parse(params.host);
             } catch (e) {
                 proxy["ws-opts"].headers.Host = params.host;
             }
@@ -819,7 +968,6 @@ function parseShadowsocksUri(line) {
     
     return proxy;
 }
-
 
 function parseTrojanUri(line) {
     line = line.split('trojan://')[1];
@@ -973,6 +1121,7 @@ function generateVmessConfig(proxy) {
   network: '${proxy.network}'`;
   }
 
+  // Генерация ws-opts с поддержкой http-upgrade
   if (proxy.network === 'ws' && proxy["ws-opts"]) {
     config += `
   ws-opts:`;
@@ -987,6 +1136,14 @@ function generateVmessConfig(proxy) {
         config += `
       ${key}: '${value}'`;
       }
+    }
+    if (proxy["ws-opts"]["v2ray-http-upgrade"]) {
+      config += `
+    v2ray-http-upgrade: true`;
+    }
+    if (proxy["ws-opts"]["v2ray-http-upgrade-fast-open"]) {
+      config += `
+    v2ray-http-upgrade-fast-open: true`;
     }
   } else if (proxy.network === 'grpc' && proxy["grpc-opts"]) {
     config += `
@@ -1204,10 +1361,17 @@ function generateVlessConfig(proxy) {
     short-id: '${proxy['reality-opts']['short-id']}'`;
     }
   }
+
+  // Генерация ws-opts с поддержкой http-upgrade
+  if (proxy.network === 'ws' && proxy["ws-opts"]) {
   config += `
   ws-opts:`;
-  if (Object.keys(proxy['ws-opts']).length > 0) {
-    if (proxy['ws-opts'].headers) {
+  if (proxy['ws-opts']) {
+    if (proxy['ws-opts'].path) {
+      config += `
+    path: '${proxy['ws-opts'].path}'`;
+    }
+    if (proxy['ws-opts'].headers && Object.keys(proxy['ws-opts'].headers).length > 0) {
       config += `
     headers:`;
       for (const [key, value] of Object.entries(proxy['ws-opts'].headers)) {
@@ -1215,13 +1379,16 @@ function generateVlessConfig(proxy) {
       ${key}: '${value}'`;
       }
     }
-    if (proxy['ws-opts'].path) {
+    if (proxy['ws-opts']['v2ray-http-upgrade']) {
       config += `
-    path: '${proxy['ws-opts'].path}'`;
+    v2ray-http-upgrade: true`;
     }
-  } else {
-    config += ` {}`;
+    if (proxy['ws-opts']['v2ray-http-upgrade-fast-open']) {
+      config += `
+    v2ray-http-upgrade-fast-open: true`;
+    }
   }
+    }
 
   if (proxy.network === 'grpc' && proxy['grpc-opts'] && proxy['grpc-opts']['grpc-service-name']) {
     config += `
@@ -1231,8 +1398,6 @@ function generateVlessConfig(proxy) {
     config += `
   grpc-opts: {}`;
   }
-  config += `
-  http-opts: {}`;
 
   config += `\n\nproxy-groups:
 - name: PROXY
@@ -1258,7 +1423,6 @@ function generateVlessConfig(proxy) {
   return config;
 }
 
-// Генерация конфига для нескольких прокси
 function generateMultiProxyConfig(proxies) {
     let config = 'proxies:';
     
