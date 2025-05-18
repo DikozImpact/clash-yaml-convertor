@@ -1,5 +1,5 @@
 document.getElementById('warpButton').onclick = function() {
-    window.location.href = 'https://my-other-projects.vercel.app/';
+    window.location.href = 'https://boosty.to/warphelp/donate';
 }
 
 const configToggle = document.getElementById('config');
